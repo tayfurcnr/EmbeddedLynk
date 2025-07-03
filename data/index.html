@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LYNK Config Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f4f4f4;
+      --card-bg: #fff;
+      --text: #333;
+      --primary: #007bff;
+      --primary-dark: #0056b3;
+      --error: #d9534f;
+      --success: #28a745;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e;
+        --card-bg: #2c2c2c;
+        --text: #e0e0e0;
+        --primary: #3399ff;
+        --primary-dark: #267acc;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: var(--card-bg);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.6em;
+    }
+
+    label {
+      margin-top: 12px;
+      font-weight: bold;
+      display: block;
+      font-size: 0.95em;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      font-size: 1em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 6px;
+    }
+
+    button {
+      background-color: var(--primary);
+      color: white;
+      padding: 14px;
+      font-size: 1em;
+      margin-top: 15px;
+      width: 100%;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .status {
+      margin-top: 15px;
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card-bg);
+      border: 1px solid #ccc;
+      padding: 14px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      color: var(--text);
+      z-index: 9999;
+      display: none;
+      font-size: 0.95em;
+    }
+
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--error); color: var(--error); }
+
+    .connection-status {
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+      font-size: 0.95em;
+    }
+
+    .connected { color: var(--success); }
+    .disconnected { color: var(--error); }
+
+    .button-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .button-row button:first-child {
+      background-color: #6c757d;
+    }
+
+    @media (min-width: 500px) {
+      .button-row {
+        flex-direction: row;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>LYNK Configuration Panel</h2>
+    <div class="connection-status" id="connStatus">🟡 Connecting...</div>
+
+    <label for="device_id">Device ID</label>
+    <input type="number" id="device_id" min="0" max="255">
+
+    <label for="mode">Mode</label>
+    <select id="mode">
+      <option value="0">STATIC</option>
+      <option value="1">DYNAMIC</option>
+    </select>
+
+    <label for="static_dst_id">Static Destination ID</label>
+    <input type="number" id="static_dst_id" min="0" max="255">
+
+    <label for="uart_baudrate">UART Baudrate</label>
+    <select id="uart_baudrate">
+      <option value="9600">9600</option>
+      <option value="19200">19200</option>
+      <option value="38400">38400</option>
+      <option value="57600" selected>57600</option>
+      <option value="115200">115200</option>
+      <option value="230400">230400</option>
+    </select>
+
+    <label for="start_byte">Start Byte</label>
+    <input type="number" id="start_byte" min="0" max="255">
+
+    <label for="start_byte_2">Start Byte 2</label>
+    <input type="number" id="start_byte_2" min="0" max="255">
+
+    <div class="button-row">
+      <button onclick="loadConfig()">🔄 Load Config</button>
+      <button onclick="sendConfig()">💾 Set Config</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let ws;
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById("toast");
+      toast.className = `toast ${type}`;
+      toast.innerText = message;
+      toast.style.display = 'block';
+      setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    function updateConnStatus(connected) {
+      const status = document.getElementById("connStatus");
+      status.textContent = connected ? '🟢 WebSocket Connected' : '🔴 Disconnected';
+      status.className = connected ? 'connection-status connected' : 'connection-status disconnected';
+    }
+
+    function connectWebSocket() {
+      ws = new WebSocket(`ws://${location.host}/ws`);
+
+      ws.onopen = () => {
+        updateConnStatus(true);
+        //loadConfig();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.device_id !== undefined) {
+            document.getElementById("device_id").value = msg.device_id;
+            document.getElementById("mode").value = msg.mode;
+            document.getElementById("static_dst_id").value = msg.static_dst_id;
+            document.getElementById("uart_baudrate").value = msg.uart_baudrate;
+            document.getElementById("start_byte").value = msg.start_byte;
+            document.getElementById("start_byte_2").value = msg.start_byte_2;
+          }
+          if (msg.status) {
+            showToast("✅ " + msg.status, 'success');
+          }
+        } catch {
+          showToast("⚠️ Invalid message", 'error');
+        }
+      };
+
+      ws.onclose = () => {
+        updateConnStatus(false);
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    function loadConfig() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ cmd: "get_config" }));
+      } else {
+        showToast("⚠️ WebSocket not connected", 'error');
+      }
+    }
+
+    function sendConfig() {
+      const config = {
+        cmd: "set_config",
+        device_id: parseInt(document.getElementById("device_id").value),
+        mode: parseInt(document.getElementById("mode").value),
+        static_dst_id: parseInt(document.getElementById("static_dst_id").value),
+        uart_baudrate: parseInt(document.getElementById("uart_baudrate").value),
+        start_byte: parseInt(document.getElementById("start_byte").value),
+        start_byte_2: parseInt(document.getElementById("start_byte_2").value)
+      };
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(config));
+      } else {
+        showToast("⚠️ WebSocket not connected", 'error');
+      }
+    }
+
+    window.onload = connectWebSocket;
+  </script>
+</body>
+</html>
