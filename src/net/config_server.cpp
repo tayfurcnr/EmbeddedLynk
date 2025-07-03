@@ -81,43 +81,26 @@ void config_server_init() {
         return;
     }
 
+    // Bağlanan cihazı logla (yalnızca MAC değil, bağlantı olduğunu bildirmek için)
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
         if (event == ARDUINO_EVENT_WIFI_AP_STACONNECTED) {
             Serial.println("[WIFI] New station connected to ESP32 AP");
         }
     }, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
 
+    // Access point başlat
     WiFi.softAP(AP_SSID, AP_PASS);
     Serial.print("AP IP address: ");
     Serial.println(WiFi.softAPIP());
 
+    // WebSocket & HTTP sunucu
     ws.onEvent(onWsEvent);
     server.addHandler(&ws);
 
-    // "/" isteği /main sayfasına yönlendir
     server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-        request->redirect("/main");
-    });
-
-    // Ana menü sayfası
-    server.on("/main", HTTP_GET, [](AsyncWebServerRequest* request) {
         IPAddress clientIp = request->client()->remoteIP();
-        Serial.printf("[HTTP] Client connected to /main: %s\n", clientIp.toString().c_str());
-        request->send(SPIFFS, "/main.html", "text/html");
-    });
-
-    // LYNK Konfigürasyon sayfası
-    server.on("/lynk-config", HTTP_GET, [](AsyncWebServerRequest* request) {
-        IPAddress clientIp = request->client()->remoteIP();
-        Serial.printf("[HTTP] Client connected to /lynk-config: %s\n", clientIp.toString().c_str());
-        request->send(SPIFFS, "/lynk-config.html", "text/html");
-    });
-
-    // WiFi Konfigürasyon sayfası
-    server.on("/wifi-config", HTTP_GET, [](AsyncWebServerRequest* request) {
-        IPAddress clientIp = request->client()->remoteIP();
-        Serial.printf("[HTTP] Client connected to /wifi-config: %s\n", clientIp.toString().c_str());
-        request->send(SPIFFS, "/wifi-config.html", "text/html");
+        Serial.printf("[HTTP] Client connected: %s\n", clientIp.toString().c_str());
+        request->send(SPIFFS, "/index.html", "text/html");
     });
 
     server.begin();
