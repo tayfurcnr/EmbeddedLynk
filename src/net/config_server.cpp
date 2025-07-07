@@ -61,7 +61,6 @@ void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
             if (doc.containsKey("start_byte_2"))    new_cfg.start_byte_2 = doc["start_byte_2"];
 
             config_manager_set(&new_cfg);
-            config_manager_save();
 
             notifyClients("{\"status\":\"config_updated\"}");
         }
@@ -143,12 +142,16 @@ void config_server_init() {
         // DEBUG: Gelen ham HTTP POST body'sini logla
         Serial.printf("[HTTP POST /wifi-config] Received body: %s\n", body.c_str());
 
-        // wifi_config_apply_json fonksiyonu zaten ayarları kaydedip AP'yi yeniden başlatıyor.
-        // Bu yüzden buradaki kod tekrarına gerek yok.
         if (wifi_config_apply_json(body.c_str())) {
+            // 1. Başarı yanıtını tarayıcıya gönder. Bu, pop-up'ın görünmesini sağlar.
             request->send(200, "application/json", "{\"status\":\"wifi_updated\"}");
+            // 2. Yanıtın ağ üzerinden güvenle gönderilmesi için kısa bir süre bekle.
+            // Bu olmadan, ESP.restart() komutu yanıt gönderilmeden çalışabilir.
+            delay(500);
+            // 3. Şimdi cihazı güvenle yeniden başlatarak yeni ayarları uygula.
+            ESP.restart();
         } else {
-            // JSON formatı bozuksa veya NVS'e kaydetme başarısız olursa hata döner.
+            // Ayarları kaydetme başarısız olursa hata döner.
             request->send(500, "application/json", "{\"status\":\"failed_to_apply_wifi_config\"}");
         }
     });

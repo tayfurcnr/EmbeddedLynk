@@ -5,126 +5,128 @@
   <title>LYNK Main Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+  :root {
+    --bg: #f4f4f4;
+    --card-bg: #fff;
+    --text: #333;
+    --primary: #007bff;
+    --primary-dark: #0056b3;
+    --error: #d9534f;
+    --success: #28a745;
+    --badge-bg: rgba(0, 0, 0, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #f4f4f4;
-      --card-bg: #fff;
-      --text: #333;
-      --primary: #007bff;
-      --primary-dark: #0056b3;
-      --error: #d9534f;
-      --success: #28a745;
-      --badge-bg: rgba(0, 0, 0, 0.05);
+      --bg: #1e1e1e;
+      --card-bg: #2c2c2c;
+      --text: #e0e0e0;
+      --primary: #3399ff;
+      --primary-dark: #267acc;
+      --badge-bg: rgba(255, 255, 255, 0.05);
     }
+  }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1e1e1e;
-        --card-bg: #2c2c2c;
-        --text: #e0e0e0;
-        --primary: #3399ff;
-        --primary-dark: #267acc;
-        --badge-bg: rgba(255, 255, 255, 0.05);
-      }
-    }
+  * {
+    box-sizing: border-box;
+  }
 
-    * {
-      box-sizing: border-box;
-    }
+  body {
+    font-family: "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg);
+    color: var(--text);
+  }
 
-    body {
-      font-family: "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: var(--bg);
-      color: var(--text);
-    }
+  .container {
+    max-width: 500px;
+    margin: auto;
+    background-color: var(--card-bg);
+    padding: 32px 24px;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    text-align: center;
+  }
 
-    .container {
-      max-width: 500px;
-      margin: auto;
-      background-color: var(--card-bg);
-      padding: 32px 24px;
-      border-radius: 16px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-      text-align: center;
-    }
+  h2 {
+    margin-bottom: 24px;
+    font-size: 1.8em;
+    font-weight: 600;
+  }
 
-    h2 {
-      margin-bottom: 24px;
-      font-size: 1.8em;
-      font-weight: 600;
-    }
+  .button {
+    display: block;
+    margin: 16px auto;
+    padding: 18px 24px;
+    max-width: 320px;
+    background-color: var(--card-bg);
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.05em;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: all 0.25s ease;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
 
-    .button {
-      display: block;
-      margin: 16px auto;
-      padding: 18px 24px;
-      max-width: 320px;
-      background-color: var(--card-bg);
-      color: var(--text);
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1.05em;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      transition: all 0.25s ease;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-    }
+  .button:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+    background-color: var(--primary);
+    color: white;
+  }
 
-    .button:hover {
-      transform: scale(1.03);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-      background-color: var(--primary);
-      color: white;
-    }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    background-color: var(--badge-bg);
+    border-radius: 50px;
+    padding: 6px 14px;
+    font-size: 0.95em;
+    font-weight: 500;
+    margin-bottom: 20px;
+    transition: color 0.3s ease;
+  }
 
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: center;
-      background-color: var(--badge-bg);
-      border-radius: 50px;
-      padding: 6px 14px;
-      font-size: 0.95em;
-      font-weight: 500;
-      margin-bottom: 20px;
-      transition: color 0.3s ease;
-    }
+  .status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
 
-    .status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #ffc107; /* default yellow */
-      animation: blink 1.5s infinite;
-    }
+  .connection-status:not(.connected):not(.disconnected) .status-dot {
+    background-color: #ffc107; /* yellow - default */
+  }
 
-    .connected .status-dot {
-      background-color: var(--success);
-      animation: none;
-    }
+  .connected .status-dot {
+    background-color: var(--success); /* green */
+  }
 
-    .disconnected .status-dot {
-      background-color: var(--error);
-      animation: none;
-    }
+  .disconnected .status-dot {
+    background-color: var(--error);   /* red */
+  }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 
-    footer {
-      margin-top: 30px;
-      font-size: 0.8em;
-      color: #888;
-    }
-  </style>
+  footer {
+    margin-top: 30px;
+    font-size: 0.8em;
+    color: #888;
+  }
+</style>
+
 </head>
 <body>
   <div class="container">
-    <h2>LYNK Device Main Menu</h2>
+    <h2>LYNK Device</h2>
 
     <div class="status-badge connection-status" id="connStatus">
       <div class="status-dot"></div>

@@ -5,6 +5,8 @@
 
 #define TAG "FRAME_ROUTER"
 
+#define LYNK_BROADCAST_ADDRESS 0xFF
+
 void frame_router_process(const lynk_frame_t* frame) {
     const lynk_config_t* cfg = config_get();
 
@@ -17,7 +19,7 @@ void frame_router_process(const lynk_frame_t* frame) {
     }
 
     // DYNAMIC MOD: Frame yalnızca hedef cihaz ID'sine ya da broadcast (0xFF) adresine sahipse iletilir
-    if (frame->dst_id != cfg->device_id && frame->dst_id != 0xFF) {
+    if (frame->dst_id != cfg->device_id && frame->dst_id != LYNK_BROADCAST_ADDRESS) {
         ESP_LOGI(TAG, "DYNAMIC: Frame ignored (dst_id: %u)", frame->dst_id);
         return;
     }

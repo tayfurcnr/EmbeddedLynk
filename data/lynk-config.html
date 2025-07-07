@@ -142,18 +142,19 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background-color: #ffc107;
       animation: blink 1.5s infinite;
     }
 
+    .connection-status:not(.connected):not(.disconnected) .status-dot {
+      background-color: #ffc107; /* yellow */
+    }
+
     .connected .status-dot {
-      background-color: var(--success);
-      animation: none;
+      background-color: var(--success); /* green */
     }
 
     .disconnected .status-dot {
-      background-color: var(--error);
-      animation: none;
+      background-color: var(--error); /* red */
     }
 
     @keyframes blink {

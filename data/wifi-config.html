@@ -27,9 +27,7 @@
       }
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       font-family: "Segoe UI", sans-serif;
@@ -138,17 +136,64 @@
 
     .connected .status-dot {
       background-color: var(--success);
-      animation: none;
     }
 
     .disconnected .status-dot {
       background-color: var(--error);
-      animation: none;
     }
 
     @keyframes blink {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.4; }
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      left: 0; top: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .modal-content {
+      background-color: var(--card-bg);
+      color: var(--text);
+      padding: 30px;
+      border-radius: 16px;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      animation: slideUp 0.4s ease;
+    }
+
+    .modal-content h3 {
+      margin-top: 0;
+      font-size: 1.4em;
+    }
+
+    .modal-content p {
+      margin: 12px 0;
+      white-space: pre-line;
+      font-size: 0.95em;
+    }
+
+    .modal-content .note {
+      font-size: 0.8em;
+      color: #888;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
   </style>
 </head>
@@ -174,6 +219,15 @@
     <a href="/main" class="back-link">← Back to Main Menu</a>
   </div>
 
+  <!-- Modal -->
+  <div class="modal" id="rebootModal">
+    <div class="modal-content">
+      <h3>🔄 Device Restarting</h3>
+      <p id="rebootText">Please wait...</p>
+      <p class="note">Reconnect manually if SSID or password has changed.</p>
+    </div>
+  </div>
+
   <script>
     let ws;
 
@@ -193,14 +247,17 @@
     function connectWebSocket() {
       ws = new WebSocket(`ws://${location.host}/ws`);
 
-      ws.onopen = () => {
-        updateConnStatus(true);
-      };
-
+      ws.onopen = () => updateConnStatus(true);
       ws.onclose = () => {
         updateConnStatus(false);
         setTimeout(connectWebSocket, 2000);
       };
+    }
+
+    function showRebootModal(ssid) {
+      const text = `✅ WiFi settings saved successfully!\n\nDevice is restarting with SSID:\n'${ssid}'`;
+      document.getElementById("rebootText").textContent = text;
+      document.getElementById("rebootModal").style.display = "flex";
     }
 
     function submitWiFiConfig() {
@@ -212,29 +269,25 @@
         return;
       }
 
+      // Gönderimi hemen başlat
       const config = {
         ssid: ssid,
         password: password
       };
-
       const postData = 'body=' + encodeURIComponent(JSON.stringify(config));
 
+      // 1️⃣ Önce modal göster
+      showRebootModal(ssid);
+      document.querySelector('.save-button').textContent = 'Restarting...';
+
+      // 2️⃣ Ardından gönder, ama bekleme
       fetch('/wifi-config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: postData
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'wifi_updated') {
-          alert('✅ WiFi settings saved successfully! The device will now use the new settings.');
-        } else {
-          alert('❌ Error saving settings. Status: ' + (data.status || 'unknown'));
-        }
-      })
-      .catch(error => alert('❗ An error occurred: ' + error));
+      }).catch(e => console.warn("WiFi config error:", e));
     }
 
     window.onload = connectWebSocket;

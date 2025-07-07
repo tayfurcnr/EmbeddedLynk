@@ -200,16 +200,6 @@ bool wifi_config_apply_json(const char* json_str) {
 
     // DEBUG: Yazılacak olan yeni WiFi ayarlarını logla
     Serial.printf("[WIFI_CONFIG] Applying new config - SSID: '%s', Password: '%s'\n", wifi_cfg.ssid, wifi_cfg.password);
-    
-    bool result = wifi_config_save(&wifi_cfg);
-    if (result) {
-        ESP_LOGI(TAG, "WiFi config saved. Restarting device to apply changes...");
-        // Log mesajının seri porttan gönderilmesi ve diğer işlemlerin tamamlanması için kısa bir bekleme
-        delay(1000); 
-        ESP.restart();
-    } else {
-        ESP_LOGE(TAG, "Failed to save WiFi config");
-    }
 
-    return result;
+    return wifi_config_save(&wifi_cfg);;
 }
