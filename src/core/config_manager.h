@@ -8,61 +8,77 @@
 extern "C" {
 #endif
 
-// Çalışma modları
 typedef enum {
-    LYNK_MODE_STATIC = 0,   // Statik hedef ID mod
-    LYNK_MODE_DYNAMIC = 1   // Dinamik hedef ID mod
-} LynkMode_t;
+    LYNK_MODE_STATIC = 0,
+    LYNK_MODE_DYNAMIC = 1
+} lynk_mode_t;
 
-// Konfigürasyon yapısı
 typedef struct {
-    uint8_t device_id;         // Cihaz kimliği
-    LynkMode_t mode;           // Çalışma modu (Static / Dynamic)
-    uint8_t static_dst_id;     // Statik modda hedef cihaz ID'si
-    uint32_t uart_baudrate;    // UART haberleşme hızı
-    uint8_t start_byte;        // Başlangıç baytı 1
-    uint8_t start_byte_2;      // Başlangıç baytı 2
+    uint8_t device_id;
+    lynk_mode_t mode;
+    uint8_t static_dst_id;
+    uint32_t uart_baudrate;
+    uint8_t start_byte;
+    uint8_t start_byte_2;
 } lynk_config_t;
 
 /**
- * @brief Aktif konfigürasyon yapısını döner (salt okunur).
+ * WiFi yapı tanımı - isim çatışmasını önlemek için farklı isimlendirme kullanıldı
+ */
+typedef struct my_wifi_config_s {
+    char ssid[32];
+    char password[64];
+} my_wifi_config_t;
+
+/**
+ * @brief LYNK config yapısına pointer döner
  */
 const lynk_config_t* config_get(void);
 
 /**
- * @brief EEPROM/NVS’den konfigürasyonu yükler.
- * @return Başarılı ise true, başarısız ise false.
- */
-bool config_manager_load(void);
-
-/**
- * @brief Konfigürasyonu EEPROM/NVS’ye kaydeder.
- * @return Başarılı ise true, başarısız ise false.
- */
-bool config_manager_save(void);
-
-/**
- * @brief Varsayılan konfigürasyon değerlerini set eder.
+ * @brief Varsayılan config değerlerini yükler
  */
 void config_manager_init_defaults(void);
 
 /**
- * @brief EEPROM/NVS başlatır, varsa kayıtlı konfigürasyonu yükler, yoksa varsayılanları atar.
+ * @brief Config yöneticisini başlatır, EEPROM'dan yükler
  */
 void config_manager_init(void);
 
 /**
- * @brief Yeni konfigürasyonu aktif yapılandırma olarak set eder ve EEPROM/NVS’ye kaydeder.
- * @param new_cfg Yeni konfigürasyon yapısı.
+ * @brief Yeni config ayarlarını uygular ve kaydeder
  */
 void config_manager_set(const lynk_config_t* new_cfg);
 
 /**
- * @brief JSON formatındaki string’i parse ederek konfigürasyonu uygular ve kaydeder.
- * @param json_str JSON formatında konfigürasyon stringi.
- * @return Başarılı ise true, başarısız ise false.
+ * @brief Config'i NVS'ye kaydeder
+ */
+bool config_manager_save(void);
+
+/**
+ * @brief Config'i NVS'den yükler
+ */
+bool config_manager_load(void);
+
+/**
+ * @brief JSON ile gelen config ayarlarını uygular
  */
 bool config_manager_apply_json(const char* json_str);
+
+/**
+ * @brief WiFi ayarlarını kaydeder
+ */
+bool wifi_config_save(const my_wifi_config_t* wifi_cfg);
+
+/**
+ * @brief WiFi ayarlarını yükler
+ */
+bool wifi_config_load(my_wifi_config_t* wifi_cfg);
+
+/**
+ * @brief JSON ile gelen WiFi ayarlarını uygular
+ */
+bool wifi_config_apply_json(const char* json_str);
 
 #ifdef __cplusplus
 }

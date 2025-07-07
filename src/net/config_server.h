@@ -3,10 +3,10 @@
 
 #include <Arduino.h>
 
-// config_server_init() tüm platformlarda kullanılabilir
+// Initialize HTTP + WebSocket server and related handlers
 void config_server_init(void);
 
-// notifyClients() yalnızca C++ tarafında kullanılabilir (String C'de yok)
+// Send a text message to all connected WebSocket clients (C++ only)
 #ifdef __cplusplus
 void notifyClients(const String& msg);
 #endif

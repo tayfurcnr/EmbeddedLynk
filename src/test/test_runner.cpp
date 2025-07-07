@@ -39,6 +39,7 @@ void test_frame_codec_basic() {
 // ⚙️ Konfig Varsayılan Değer Testi
 // ===============================
 void test_config_defaults() {
+    // Varsayılan değerleri yükle
     config_manager_init_defaults();
     config_manager_save();
     const lynk_config_t* cfg = config_get();
@@ -79,9 +80,10 @@ void test_apply_json() {
 // ===============================
 void test_router_logic_static() {
     config_manager_init_defaults();
-    lynk_config_t* cfg = (lynk_config_t*)config_get();
-    cfg->mode = LYNK_MODE_STATIC;
-    cfg->static_dst_id = 0x55;
+    lynk_config_t new_cfg = *config_get();
+    new_cfg.mode = LYNK_MODE_STATIC;
+    new_cfg.static_dst_id = 0x55;
+    config_manager_set(&new_cfg);
 
     lynk_frame_t frame = {};
     frame.start_byte = 0xA5;
@@ -96,7 +98,8 @@ void test_router_logic_static() {
 
     Serial.println("[TEST] Routing frame in STATIC mode...");
     frame_router_process(&frame);
-    Serial.printf("[TEST] Expected override dst_id: 0x%02X\n", cfg->static_dst_id);
+
+    Serial.printf("[TEST] Expected override dst_id: 0x%02X\n", new_cfg.static_dst_id);
 }
 
 // ===============================
@@ -104,9 +107,10 @@ void test_router_logic_static() {
 // ===============================
 void test_router_logic_dynamic() {
     config_manager_init_defaults();
-    lynk_config_t* cfg = (lynk_config_t*)config_get();
-    cfg->mode = LYNK_MODE_DYNAMIC;
-    cfg->device_id = 0x42;
+    lynk_config_t new_cfg = *config_get();
+    new_cfg.mode = LYNK_MODE_DYNAMIC;
+    new_cfg.device_id = 0x42;
+    config_manager_set(&new_cfg);
 
     Serial.println("[TEST] Routing frames in DYNAMIC mode...");
 

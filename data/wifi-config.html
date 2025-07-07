@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WiFi Configuration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f4f4f4;
+      --card-bg: #fff;
+      --text: #333;
+      --primary: #007bff;
+      --primary-dark: #0056b3;
+      --error: #d9534f;
+      --success: #28a745;
+      --badge-bg: rgba(0, 0, 0, 0.05);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1e1e1e;
+        --card-bg: #2c2c2c;
+        --text: #e0e0e0;
+        --primary: #3399ff;
+        --primary-dark: #267acc;
+        --badge-bg: rgba(255, 255, 255, 0.05);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: var(--card-bg);
+      padding: 32px 24px;
+      border-radius: 16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 1.7em;
+      font-weight: 600;
+    }
+
+    label {
+      margin-top: 14px;
+      font-weight: bold;
+      display: block;
+      font-size: 0.95em;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 1em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 6px;
+      margin-bottom: 12px;
+    }
+
+    .save-button {
+      display: block;
+      margin: 24px auto 12px auto;
+      padding: 16px 20px;
+      max-width: 320px;
+      background-color: var(--card-bg);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.05em;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transition: all 0.25s ease;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .save-button:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 20px;
+      text-align: center;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .status-wrapper {
+      text-align: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      background-color: var(--badge-bg);
+      border-radius: 50px;
+      padding: 6px 14px;
+      font-size: 0.95em;
+      font-weight: 500;
+      margin: 0 auto 20px auto;
+      transition: color 0.3s ease;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #ffc107;
+      animation: blink 1.5s infinite;
+    }
+
+    .connected .status-dot {
+      background-color: var(--success);
+      animation: none;
+    }
+
+    .disconnected .status-dot {
+      background-color: var(--error);
+      animation: none;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>WiFi Configuration</h2>
+
+    <div class="status-wrapper">
+      <div class="status-badge connection-status" id="connStatus">
+        <div class="status-dot"></div>
+        <span>Connecting...</span>
+      </div>
+    </div>
+
+    <label for="ssid">WiFi SSID</label>
+    <input type="text" id="ssid" placeholder="Enter WiFi SSID" required />
+
+    <label for="password">WiFi Password</label>
+    <input type="password" id="password" placeholder="Enter WiFi Password" />
+
+    <div class="save-button" onclick="submitWiFiConfig()">💾 Save Settings</div>
+
+    <a href="/main" class="back-link">← Back to Main Menu</a>
+  </div>
+
+  <script>
+    let ws;
+
+    function updateConnStatus(connected) {
+      const status = document.getElementById("connStatus");
+      const span = status.querySelector("span");
+
+      if (connected) {
+        span.textContent = "WebSocket Connected";
+        status.className = "status-badge connection-status connected";
+      } else {
+        span.textContent = "Disconnected";
+        status.className = "status-badge connection-status disconnected";
+      }
+    }
+
+    function connectWebSocket() {
+      ws = new WebSocket(`ws://${location.host}/ws`);
+
+      ws.onopen = () => {
+        updateConnStatus(true);
+      };
+
+      ws.onclose = () => {
+        updateConnStatus(false);
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    function submitWiFiConfig() {
+      const ssid = document.getElementById('ssid').value;
+      const password = document.getElementById('password').value;
+
+      if (!ssid.trim()) {
+        alert('SSID cannot be empty!');
+        return;
+      }
+
+      const config = {
+        ssid: ssid,
+        password: password
+      };
+
+      const postData = 'body=' + encodeURIComponent(JSON.stringify(config));
+
+      fetch('/wifi-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: postData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'wifi_updated') {
+          alert('✅ WiFi settings saved successfully! The device will now use the new settings.');
+        } else {
+          alert('❌ Error saving settings. Status: ' + (data.status || 'unknown'));
+        }
+      })
+      .catch(error => alert('❗ An error occurred: ' + error));
+    }
+
+    window.onload = connectWebSocket;
+  </script>
+</body>
+</html>

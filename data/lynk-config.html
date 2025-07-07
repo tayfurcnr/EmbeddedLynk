@@ -30,7 +30,7 @@
     }
 
     body {
-      font-family: Arial, sans-serif;
+      font-family: "Segoe UI", sans-serif;
       margin: 0;
       padding: 20px;
       background-color: var(--bg);
@@ -41,19 +41,20 @@
       max-width: 600px;
       margin: auto;
       background-color: var(--card-bg);
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 32px 24px;
+      border-radius: 16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
     }
 
     h2 {
       text-align: center;
-      margin-bottom: 20px;
-      font-size: 1.6em;
+      margin-bottom: 24px;
+      font-size: 1.7em;
+      font-weight: 600;
     }
 
     label {
-      margin-top: 12px;
+      margin-top: 14px;
       font-weight: bold;
       display: block;
       font-size: 0.95em;
@@ -66,28 +67,32 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       margin-top: 6px;
+      margin-bottom: 12px;
     }
 
-    button {
+    .config-button {
+      display: block;
+      margin: 16px auto;
+      padding: 16px 20px;
+      max-width: 320px;
+      background-color: var(--card-bg);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.05em;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transition: all 0.25s ease;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .config-button:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
       background-color: var(--primary);
       color: white;
-      padding: 14px;
-      font-size: 1em;
-      margin-top: 15px;
-      width: 100%;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    button:hover {
-      background-color: var(--primary-dark);
-    }
-
-    .status {
-      margin-top: 15px;
-      text-align: center;
     }
 
     .toast {
@@ -109,40 +114,80 @@
     .toast.success { border-color: var(--success); color: var(--success); }
     .toast.error { border-color: var(--error); color: var(--error); }
 
-    .connection-status {
+    .status-wrapper {
       text-align: center;
-      margin-bottom: 10px;
-      font-weight: bold;
-      font-size: 0.95em;
     }
 
-    .connected { color: var(--success); }
-    .disconnected { color: var(--error); }
-
-    .button-row {
-      display: flex;
-      flex-direction: column;
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
       gap: 10px;
+      justify-content: center;
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 50px;
+      padding: 6px 14px;
+      font-size: 0.95em;
+      font-weight: 500;
+      margin: 0 auto 20px auto;
+      transition: color 0.3s ease;
     }
 
-    .button-row button:first-child {
-      background-color: #6c757d;
-    }
-
-    @media (min-width: 500px) {
-      .button-row {
-        flex-direction: row;
+    @media (prefers-color-scheme: dark) {
+      .status-badge {
+        background-color: rgba(255, 255, 255, 0.05);
       }
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #ffc107;
+      animation: blink 1.5s infinite;
+    }
+
+    .connected .status-dot {
+      background-color: var(--success);
+      animation: none;
+    }
+
+    .disconnected .status-dot {
+      background-color: var(--error);
+      animation: none;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 20px;
+      text-align: center;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>LYNK Configuration Panel</h2>
-    <div class="connection-status" id="connStatus">🟡 Connecting...</div>
+
+    <div class="status-wrapper">
+      <div class="status-badge connection-status" id="connStatus">
+        <div class="status-dot"></div>
+        <span>Connecting...</span>
+      </div>
+    </div>
 
     <label for="device_id">Device ID</label>
-    <input type="number" id="device_id" min="0" max="255">
+    <input type="number" id="device_id" min="0" max="255" />
 
     <label for="mode">Mode</label>
     <select id="mode">
@@ -151,7 +196,7 @@
     </select>
 
     <label for="static_dst_id">Static Destination ID</label>
-    <input type="number" id="static_dst_id" min="0" max="255">
+    <input type="number" id="static_dst_id" min="0" max="255" />
 
     <label for="uart_baudrate">UART Baudrate</label>
     <select id="uart_baudrate">
@@ -164,15 +209,15 @@
     </select>
 
     <label for="start_byte">Start Byte</label>
-    <input type="number" id="start_byte" min="0" max="255">
+    <input type="number" id="start_byte" min="0" max="255" />
 
     <label for="start_byte_2">Start Byte 2</label>
-    <input type="number" id="start_byte_2" min="0" max="255">
+    <input type="number" id="start_byte_2" min="0" max="255" />
 
-    <div class="button-row">
-      <button onclick="loadConfig()">🔄 Load Config</button>
-      <button onclick="sendConfig()">💾 Set Config</button>
-    </div>
+    <div class="config-button" onclick="loadConfig()">🔄 Load Config</div>
+    <div class="config-button" onclick="sendConfig()">💾 Set Config</div>
+
+    <a href="/main" class="back-link">← Back to Main Menu</a>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -190,8 +235,15 @@
 
     function updateConnStatus(connected) {
       const status = document.getElementById("connStatus");
-      status.textContent = connected ? '🟢 WebSocket Connected' : '🔴 Disconnected';
-      status.className = connected ? 'connection-status connected' : 'connection-status disconnected';
+      const span = status.querySelector("span");
+
+      if (connected) {
+        span.textContent = "WebSocket Connected";
+        status.className = "status-badge connection-status connected";
+      } else {
+        span.textContent = "Disconnected";
+        status.className = "status-badge connection-status disconnected";
+      }
     }
 
     function connectWebSocket() {
@@ -199,7 +251,6 @@
 
       ws.onopen = () => {
         updateConnStatus(true);
-        //loadConfig();
       };
 
       ws.onmessage = (event) => {
