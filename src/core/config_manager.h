@@ -46,6 +46,11 @@ void config_manager_init_defaults(void);
 void config_manager_init(void);
 
 /**
+ * @brief NVS'i silerek fabrika ayarlarına döndürür
+ */
+bool config_manager_factory_reset(void);
+
+/**
  * @brief Yeni config ayarlarını uygular ve kaydeder
  */
 void config_manager_set(const lynk_config_t* new_cfg);

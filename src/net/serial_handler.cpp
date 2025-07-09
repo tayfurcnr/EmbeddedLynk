@@ -24,19 +24,59 @@ static SoftwareSerial softModuleSerial(MODULE_UART_RX_PIN, MODULE_UART_TX_PIN);
 static uart_port_t module_uart_port = MODULE_UART_PORT;
 static uart_port_t user_uart_port = USER_UART_PORT;
 
+// --- Ortak Frame Ayrıştırma Yardımcıları (Hem Donanımsal hem Yazılımsal UART için) ---
+
+/**
+ * @brief Gelen ham byte dizisinden beklenen toplam frame uzunluğunu hesaplar.
+ * 
+ * Bu fonksiyon, frame başlığındaki `payload_len` alanını okuyarak çalışır.
+ * Başlık tam olarak alınmadıysa 0 döner.
+ * 
+ * @param buffer Gelen byte'ları içeren tampon.
+ * @param len Tamponda şu anki byte sayısı.
+ * @return Beklenen toplam frame uzunluğu veya 0.
+ */
+static size_t get_expected_frame_length(const uint8_t* buffer, size_t len) {
+    // payload_len alanını okumak için gereken minimum uzunluk
+    const size_t LYNK_HEADER_SIZE = 7;
+    const size_t LYNK_CRC_SIZE = 2;
+
+    if (len < LYNK_HEADER_SIZE) {
+        return 0; // Uzunluğu belirlemek için yeterli veri yok.
+    }
+
+    uint8_t payload_len = buffer[6]; // payload_len alanı 7. byte'dır (index 6)
+    return LYNK_HEADER_SIZE + payload_len + LYNK_CRC_SIZE;
+}
+
+// Seri porttan gelen veriyi işlemek için durum makinesi (state machine)
+typedef enum {
+    WAITING_FOR_START_1,
+    WAITING_FOR_START_2,
+    READING_FRAME
+} RxState;
+
+// Durum makinesini kullanarak byte'ları işleyen genel fonksiyon
+static void process_byte(uint8_t byte, uint8_t* rx_buffer, size_t* buffer_idx, size_t buffer_size, RxState* state, frame_source_t source, const lynk_config_t* cfg);
+
 // === MODULE RX Task (hardware UART için) ===
 #if MODULE_UART_TYPE == UART_TYPE_HARDWARE
 static void serial_rx_task_module(void* arg) {
-    uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
+    uint8_t data_buffer[UART_RX_BUFFER_SIZE];
+    
+    // Durum makinesi için değişkenler
+    uint8_t frame_buffer[UART_RX_BUFFER_SIZE];
+    size_t buffer_idx = 0;
+    RxState state = WAITING_FOR_START_1;
+    const lynk_config_t* cfg = config_get();
+
     while (true) {
-        int len = uart_read_bytes(module_uart_port, rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(100));
+        // UART'tan veri oku (daha kısa timeout ile daha sık kontrol)
+        int len = uart_read_bytes(module_uart_port, data_buffer, sizeof(data_buffer), pdMS_TO_TICKS(20));
         if (len > 0) {
-            lynk_frame_t frame;
-            if (decode_frame(rx_buffer, len, &frame)) {
-                Serial.printf("[MODULE RX] Valid frame received (dst_id=%u)\n", frame.dst_id);
-                frame_router_process(&frame);
-            } else {
-                Serial.println("[MODULE RX] Invalid frame");
+            // Gelen her byte'ı durum makinesi ile işle
+            for (int i = 0; i < len; i++) {
+                process_byte(data_buffer[i], frame_buffer, &buffer_idx, sizeof(frame_buffer), &state, FRAME_SOURCE_MODULE, cfg);
             }
         }
     }
@@ -46,33 +86,143 @@ static void serial_rx_task_module(void* arg) {
 // === USER RX Task (hardware UART için) ===
 #if USER_UART_TYPE == UART_TYPE_HARDWARE
 static void serial_rx_task_user(void* arg) {
-    uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
+    uint8_t data_buffer[UART_RX_BUFFER_SIZE];
+
+    // Durum makinesi için değişkenler
+    uint8_t frame_buffer[UART_RX_BUFFER_SIZE];
+    size_t buffer_idx = 0;
+    RxState state = WAITING_FOR_START_1;
+    const lynk_config_t* cfg = config_get();
+
     while (true) {
-        int len = uart_read_bytes(user_uart_port, rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(100));
+        // UART'tan veri oku (daha kısa timeout ile daha sık kontrol)
+        int len = uart_read_bytes(user_uart_port, data_buffer, sizeof(data_buffer), pdMS_TO_TICKS(20));
         if (len > 0) {
-            lynk_frame_t frame;
-            if (decode_frame(rx_buffer, len, &frame)) {
-                Serial.printf("[USER RX] Valid frame received (dst_id=%u)\n", frame.dst_id);
-                frame_router_process(&frame);
-            } else {
-                Serial.println("[USER RX] Invalid frame");
+            // Gelen her byte'ı durum makinesi ile işle
+            for (int i = 0; i < len; i++) {
+                process_byte(data_buffer[i], frame_buffer, &buffer_idx, sizeof(frame_buffer), &state, FRAME_SOURCE_USER, cfg);
             }
         }
     }
 }
 #endif
 
-void serial_handler_send_to_module(const lynk_frame_t* frame) {
+// Durum makinesini kullanarak byte'ları işleyen genel fonksiyon
+static void process_byte(uint8_t byte, uint8_t* rx_buffer, size_t* buffer_idx, size_t buffer_size, RxState* state, frame_source_t source, const lynk_config_t* cfg) {
+    switch (*state) {
+        case WAITING_FOR_START_1:
+            if (byte == cfg->start_byte) {
+                rx_buffer[0] = byte;
+                *buffer_idx = 1;
+                *state = WAITING_FOR_START_2;
+            }
+            break;
+
+        case WAITING_FOR_START_2:
+            if (byte == cfg->start_byte_2) {
+                rx_buffer[(*buffer_idx)++] = byte;
+                *state = READING_FRAME;
+            } else {
+                // Yanlış sıra, başa dön. Eğer yeni byte ilk start byte ise, durumu ona göre ayarla.
+                *state = WAITING_FOR_START_1;
+                if (byte == cfg->start_byte) {
+                    rx_buffer[0] = byte;
+                    *buffer_idx = 1;
+                    *state = WAITING_FOR_START_2;
+                }
+            }
+            break;
+
+        case READING_FRAME:
+            if (*buffer_idx < buffer_size) {
+                rx_buffer[(*buffer_idx)++] = byte;
+            } else {
+                // Buffer taştı, ayrıştırıcıyı sıfırla
+                Serial.printf("[%s RX] Buffer overflow, resetting parser.\n", source == FRAME_SOURCE_USER ? "USER" : "MODULE");
+                *state = WAITING_FOR_START_1;
+                *buffer_idx = 0;
+                break;
+            }
+
+            // Frame'in tamamının gelip gelmediğini kontrol et
+            size_t total_frame_len = get_expected_frame_length(rx_buffer, *buffer_idx);
+            if (total_frame_len > 0 && total_frame_len <= buffer_size && *buffer_idx >= total_frame_len) {
+                lynk_frame_t frame;
+                if (decode_frame(rx_buffer, total_frame_len, &frame)) {
+                    const char* source_str = (source == FRAME_SOURCE_USER) ? "USER" : "MODULE";
+                    Serial.printf("[%s RX] Valid frame received (dst_id=0x%02X)\n", source_str, frame.dst_id);
+                    frame_router_process(&frame, source);
+                } // Hata durumunda loglama artık decode_frame içinde yapılıyor.
+
+                // Sonraki frame için durumu sıfırla
+                *state = WAITING_FOR_START_1;
+                *buffer_idx = 0;
+            }
+            break;
+    }
+}
+
+// === MODULE RX Task (software UART için) ===
+#if MODULE_UART_TYPE == UART_TYPE_SOFTWARE
+static void serial_rx_task_module_soft(void* arg) {
+    uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
+    size_t buffer_idx = 0;
+    RxState state = WAITING_FOR_START_1;
+    const lynk_config_t* cfg = config_get();
+
+    while (true) {
+        if (softModuleSerial.available()) {
+            uint8_t byte = softModuleSerial.read();
+            process_byte(byte, rx_buffer, &buffer_idx, sizeof(rx_buffer), &state, FRAME_SOURCE_MODULE, cfg);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(10)); // No data, yield to other tasks
+        }
+    }
+}
+#endif
+
+// === USER RX Task (software UART için) ===
+#if USER_UART_TYPE == UART_TYPE_SOFTWARE
+
+static void serial_rx_task_user_soft(void* arg) {
+    uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
+    size_t buffer_idx = 0;
+    RxState state = WAITING_FOR_START_1;
+    const lynk_config_t* cfg = config_get();
+
+    while (true) {
+        if (softUserSerial.available()) {
+            uint8_t byte = softUserSerial.read();
+            process_byte(byte, rx_buffer, &buffer_idx, sizeof(rx_buffer), &state, FRAME_SOURCE_USER, cfg);
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(10)); // No data, yield to other tasks
+        }
+    }
+}
+#endif
+
+// --- Internal Hardware Implementations ---
+// These are the actual functions that write to the UART ports.
+// They are renamed to avoid conflict with the function pointers and made static.
+static void real_serial_send_to_module(const lynk_frame_t* frame) {
     uint8_t buffer[512];
     size_t len = 0;
 
     if (encode_frame(frame, buffer, &len)) {
 #if MODULE_UART_TYPE == UART_TYPE_HARDWARE
-        int ret = uart_write_bytes(module_uart_port, (const char*)buffer, len);
-        if (ret < 0) {
-            Serial.printf("[MODULE TX] uart_write_bytes failed with error: %d\n", ret);
-        } else {
+        // DEBUG: Gönderilecek ham byte'ları Hex formatında yazdır
+        Serial.print("[MODULE TX RAW] Sending data: ");
+        for (size_t i = 0; i < len; i++) {
+            Serial.printf("%02X ", buffer[i]);
+        }
+        Serial.println();
+
+        int bytes_written = uart_write_bytes(module_uart_port, (const char*)buffer, len);
+        if (bytes_written == (int)len) {
             Serial.println("[MODULE TX] Frame sent (HW)");
+        } else {
+            // Bu log, verinin donanım tamponuna yazılamadığını gösterir.
+            Serial.printf("[MODULE TX] uart_write_bytes failed. Expected %d, wrote %d\n", len, bytes_written);
         }
 #elif MODULE_UART_TYPE == UART_TYPE_SOFTWARE
         softModuleSerial.write(buffer, len);
@@ -83,15 +233,26 @@ void serial_handler_send_to_module(const lynk_frame_t* frame) {
     }
 }
 
-
-void serial_handler_send_to_user(const lynk_frame_t* frame) {
+static void real_serial_send_to_user(const lynk_frame_t* frame) {
     uint8_t buffer[512];
     size_t len = 0;
 
     if (encode_frame(frame, buffer, &len)) {
 #if USER_UART_TYPE == UART_TYPE_HARDWARE
-        uart_write_bytes(user_uart_port, (const char*)buffer, len);
-        Serial.println("[USER TX] Frame sent (HW)");
+        // DEBUG: Gönderilecek ham byte'ları Hex formatında yazdır
+        Serial.print("[USER TX RAW] Sending data: ");
+        for (size_t i = 0; i < len; i++) {
+            Serial.printf("%02X ", buffer[i]);
+        }
+        Serial.println();
+
+        int bytes_written = uart_write_bytes(user_uart_port, (const char*)buffer, len);
+        if (bytes_written == (int)len) {
+            Serial.println("[USER TX] Frame sent (HW)");
+        } else {
+            // Bu log, verinin donanım tamponuna yazılamadığını gösterir.
+            Serial.printf("[USER TX] uart_write_bytes failed. Expected %d, wrote %d\n", len, bytes_written);
+        }
 #elif USER_UART_TYPE == UART_TYPE_SOFTWARE
         softUserSerial.write(buffer, len);
         Serial.println("[USER TX] Frame sent (SOFT)");
@@ -100,6 +261,12 @@ void serial_handler_send_to_user(const lynk_frame_t* frame) {
         Serial.println("[USER TX] Frame encode FAILED");
     }
 }
+
+// --- Public Function Pointers ---
+// These pointers are defined here and initialized to point to the real functions.
+// The 'extern' declarations in the header file make them accessible to other modules.
+serial_send_func_t serial_handler_send_to_module = real_serial_send_to_module;
+serial_send_func_t serial_handler_send_to_user = real_serial_send_to_user;
 
 void serial_handler_init(void) {
     const lynk_config_t* cfg = config_get();
@@ -141,6 +308,7 @@ void serial_handler_init(void) {
 #elif MODULE_UART_TYPE == UART_TYPE_SOFTWARE
     softModuleSerial.begin(cfg->uart_baudrate);
     Serial.printf("MODULE UART (SW) initialized: RX=%d TX=%d\n", MODULE_UART_RX_PIN, MODULE_UART_TX_PIN);
+    xTaskCreate(serial_rx_task_module_soft, "serial_rx_module_soft", 4096, NULL, 10, NULL);
 #endif
 
 #if USER_UART_TYPE == UART_TYPE_HARDWARE
@@ -181,5 +349,6 @@ void serial_handler_init(void) {
 #elif USER_UART_TYPE == UART_TYPE_SOFTWARE
     softUserSerial.begin(cfg->uart_baudrate);
     Serial.printf("USER UART (SW) initialized: RX=%d TX=%d\n", USER_UART_RX_PIN, USER_UART_TX_PIN);
+    xTaskCreate(serial_rx_task_user_soft, "serial_rx_user_soft", 4096, NULL, 10, NULL);
 #endif
 }

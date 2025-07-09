@@ -13,17 +13,13 @@ extern "C" {
  */
 void serial_handler_init(void);
 
-/**
- * @brief MODULE UART üzerinden frame gönderir.
- * Yazılımsal veya donanımsal UART farkını içerir.
- */
-void serial_handler_send_to_module(const lynk_frame_t* frame);
+// Fonksiyon işaretçisi tipi (dependency injection için)
+typedef void (*serial_send_func_t)(const lynk_frame_t* frame);
 
-/**
- * @brief USER UART üzerinden frame gönderir.
- * Yazılımsal veya donanımsal UART farkını içerir.
- */
-void serial_handler_send_to_user(const lynk_frame_t* frame);
+// Bu işaretçiler gönderme fonksiyonlarını çağırmak için kullanılır.
+// Ana uygulamada gerçek donanım fonksiyonlarını, testlerde ise mock fonksiyonları gösterirler.
+extern serial_send_func_t serial_handler_send_to_module;
+extern serial_send_func_t serial_handler_send_to_user;
 
 #ifdef __cplusplus
 }

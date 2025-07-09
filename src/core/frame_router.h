@@ -3,15 +3,19 @@
 
 #include "codec/frame_codec.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// Çerçevenin hangi arayüzden geldiğini belirtmek için enum
+typedef enum {
+    FRAME_SOURCE_USER,
+    FRAME_SOURCE_MODULE,
+    FRAME_SOURCE_WIFI
+} frame_source_t;
 
-// Gelen frame'i değerlendir ve gerekirse hedefe ilet
-void frame_router_process(const lynk_frame_t* frame);
+/**
+ * @brief Gelen bir LYNK çerçevesini kaynağına ve cihazın moduna göre işler ve yönlendirir.
+ * 
+ * @param frame Alınan LYNK çerçevesine işaretçi. Bu çerçeve yönlendirme sırasında değiştirilebilir (örn. dst_id).
+ * @param source Çerçevenin alındığı kaynak arayüz.
+ */
+void frame_router_process(lynk_frame_t* frame, frame_source_t source);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif // FRAME_ROUTER_H
